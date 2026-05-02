@@ -5,6 +5,7 @@ node_modules/
 # Environment Variables and Secrets
 .env 
 .env.*
+.env.docker
 !.env.example
 
 # Next.js
