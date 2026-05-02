@@ -1,0 +1,1 @@
+ALTER TABLE `notes` ADD `session_id` text DEFAULT '' NOT NULL;

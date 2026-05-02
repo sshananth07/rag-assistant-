@@ -1,0 +1,1 @@
+ALTER TABLE `session_state` ADD `ingested_papers` text DEFAULT '[]' NOT NULL;
