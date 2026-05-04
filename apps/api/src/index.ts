@@ -2,6 +2,7 @@ import './polyfill.js'
 import 'dotenv/config'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
+import { logger } from 'hono/logger'
 import { ingestRoute } from './routes/ingest.js'
 import { queryRoute } from './routes/query.js'
 import { papersRoute } from './routes/papers.js'
@@ -12,6 +13,7 @@ import { sessionsRoute } from './routes/sessions.js'
 
 const app = new Hono()
 
+app.use('*', logger())
 app.get('/health', (c) => c.json({ status: 'ok' }))
 app.route('/ingest', ingestRoute)
 app.route('/query', queryRoute)
