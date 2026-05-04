@@ -504,6 +504,17 @@ export default function Home() {
     setSavingNote(msg.id)
     try {
       const questionMsg = messages[messages.indexOf(msg) - 1]
+
+      // Only keep chunks that are actually cited in the answer
+      console.log('Answer text:', msg.content)
+      console.log('Chunk IDs in msg.chunks:', msg.chunks.map(c => c.id))
+      const citedIds = new Set(
+        [...msg.content.matchAll(/chunk-(\d+)/g)].map(m => `chunk-${m[1]}`)
+      )
+      console.log('Cited IDs from regex:', [...citedIds])
+      const citedChunks = msg.chunks.filter(c => citedIds.has(c.id))
+      console.log('Filtered chunks:', citedChunks.map(c => c.id))
+
       const res = await fetch('/api/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -511,7 +522,7 @@ export default function Home() {
           sessionId: sessionIdRef.current,
           question: questionMsg?.content ?? '',
           answer: msg.content,
-          chunks: msg.chunks,
+          chunks: citedChunks,
           paperIds: selectedPaperIds,
         }),
       })
@@ -521,7 +532,7 @@ export default function Home() {
         sessionId: sessionIdRef.current ?? '',
         question: questionMsg?.content ?? '',
         answer: msg.content,
-        chunks: msg.chunks,
+        chunks: citedChunks,
         paperIds: selectedPaperIds,
         createdAt: Date.now(),
       }
