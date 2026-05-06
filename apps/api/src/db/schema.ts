@@ -20,6 +20,7 @@ export const notes = sqliteTable('notes', {
 
 export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),
+  name: text('name'),
   createdAt: integer('created_at').notNull(),
   lastActiveAt: integer('last_active_at').notNull(),
 })
@@ -38,4 +39,4 @@ export const sessionState = sqliteTable('session_state', {
   selectedPaperIds: text('selected_paper_ids').notNull().default('[]'),
   socraticMode: integer('socratic_mode').notNull().default(0),
   ingestedPapers: text('ingested_papers').notNull().default('[]'),
-})
+}) 
