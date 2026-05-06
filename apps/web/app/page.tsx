@@ -98,6 +98,9 @@ export default function Home() {
   const [showSessions, setShowSessions] = useState(false)
   const [sessionsList, setSessionList] = useState<SessionSummary[]>([])
   const [loadingSessions, setLoadingSessions] = useState(false)
+  const [editingSessionName, setEditingSessionName] = useState(false)
+  const [sessionNameInput, setSessionNameInput] = useState('')
+  const [currentSessionName, setCurrentSessionName] = useState<string | null>(null)
   const [hoveredPaper, setHoveredPaper] = useState<string | null>(null)
   const [apiError, setApiError] = useState<string | null>(null)
   const [sessionPage, setSessionPage] = useState(1)
@@ -171,6 +174,7 @@ export default function Home() {
 
             setSessionId(stored)
             sessionIdRef.current = stored
+            setCurrentSessionName(data.name ?? null)
             return
           }
         }
@@ -211,6 +215,7 @@ export default function Home() {
 
               setSessionId(mostRecent.id)
               sessionIdRef.current = mostRecent.id
+              setCurrentSessionName(data.name ?? null)
               return
             }
           }
@@ -233,6 +238,8 @@ export default function Home() {
       setSessionId(data.id)
       sessionIdRef.current = data.id
     }
+
+    // renameSession is defined outside the effect
 
     initSession()
   }, [])
@@ -620,6 +627,7 @@ export default function Home() {
     localStorage.setItem('paperbuddy_session_id', id)
     setSessionId(id)
     sessionIdRef.current = id
+    setCurrentSessionName(data.name ?? null)
     setShowSessions(false)
   }
 
@@ -655,6 +663,20 @@ export default function Home() {
     } catch {
       setApiError('Failed to delete paper. Please try again.')
     }
+  }
+
+  async function renameSession(name: string) {
+    if (!sessionId || !name.trim()) return
+    await fetch(`/api/sessions/${sessionId}/name`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() }),
+    })
+    setCurrentSessionName(name.trim())
+    setEditingSessionName(false)
+    setSessionList(prev => prev.map(s =>
+      s.id === sessionId ? { ...s, preview: name.trim(), name: name.trim() } : s
+    ))
   }
 
   async function loadNotes(id: string, page = 1) {
@@ -1196,7 +1218,7 @@ export default function Home() {
           background: 'var(--bg)', gap: 12,
         }}>
 
-          {/* Left — Session dropdown */}
+          {/* Session dropdown */}
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => {
@@ -1218,38 +1240,166 @@ export default function Home() {
                 size={12}
                 style={{
                   transform: showSessions ? 'rotate(90deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s',
-                  flexShrink: 0,
+                  transition: 'transform 0.2s', flexShrink: 0,
                 }}
               />
               <span style={{
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 maxWidth: 220,
               }}>
-                {sessionsList.find(s => s.id === sessionId)?.preview
+                {currentSessionName
                   ?? messages.find(m => m.role === 'user')?.content?.slice(0, 50)
                   ?? 'New Session'}
               </span>
             </button>
 
-            {/* Session dropdown panel */}
             {showSessions && (
               <div style={{
                 position: 'absolute', top: 'calc(100% + 8px)', left: 0,
-                width: 340, background: 'var(--bg-2)',
+                width: 360, background: 'var(--bg-2)',
                 border: '1px solid var(--border)', borderRadius: 10,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
                 zIndex: 100, overflow: 'hidden',
                 animation: 'fadeUp 0.15s ease forwards',
               }}>
-                {/* Dropdown header */}
+
+                {/* Current session */}
                 <div style={{
-                  padding: '12px 16px', borderBottom: '1px solid var(--border)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderBottom: '1px solid var(--border)',
+                  background: 'var(--accent-glow)',
                 }}>
-                  <div style={{ fontSize: 12, fontFamily: 'Syne, sans-serif', fontWeight: 600 }}>
-                    Sessions
+                  <div style={{ fontSize: 9, color: 'var(--accent-2)', letterSpacing: '0.08em', marginBottom: 6 }}>
+                    ● CURRENT SESSION
                   </div>
+                  {editingSessionName ? (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <input
+                        autoFocus
+                        value={sessionNameInput}
+                        onChange={e => setSessionNameInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') renameSession(sessionNameInput)
+                          if (e.key === 'Escape') setEditingSessionName(false)
+                        }}
+                        style={{
+                          flex: 1, background: 'var(--bg-3)',
+                          border: '1px solid var(--accent)',
+                          borderRadius: 6, padding: '5px 8px',
+                          color: 'var(--text-primary)', fontSize: 12,
+                          fontFamily: 'DM Mono, monospace', outline: 'none',
+                        }}
+                      />
+                      <button
+                        onClick={() => renameSession(sessionNameInput)}
+                        style={{
+                          padding: '5px 10px', borderRadius: 6,
+                          background: 'var(--accent)', border: 'none',
+                          color: '#fff', fontSize: 11, cursor: 'pointer',
+                          fontFamily: 'DM Mono, monospace',
+                        }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingSessionName(false)}
+                        style={{
+                          padding: '5px 8px', borderRadius: 6,
+                          background: 'var(--bg-3)', border: '1px solid var(--border)',
+                          color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer',
+                        }}
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{
+                        fontSize: 12, color: 'var(--accent-2)', fontWeight: 500,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        flex: 1,
+                      }}>
+                        {currentSessionName
+                          ?? messages.find(m => m.role === 'user')?.content?.slice(0, 50)
+                          ?? 'New Session'}
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSessionNameInput(currentSessionName ?? '')
+                          setEditingSessionName(true)
+                        }}
+                        title="Rename session"
+                        style={{
+                          background: 'none', border: '1px solid var(--border)',
+                          borderRadius: 4, padding: '3px 8px', cursor: 'pointer',
+                          color: 'var(--text-muted)', fontSize: 10,
+                          fontFamily: 'DM Mono, monospace', flexShrink: 0,
+                          transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.borderColor = 'var(--accent)'
+                          e.currentTarget.style.color = 'var(--accent-2)'
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.borderColor = 'var(--border)'
+                          e.currentTarget.style.color = 'var(--text-muted)'
+                        }}
+                      >
+                        rename
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Past sessions */}
+                {sessionsList.filter(s => s.id !== sessionId).length > 0 && (
+                  <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+                    <div style={{ padding: '8px 16px 4px', fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.08em' }}>
+                      PAST SESSIONS
+                    </div>
+                    {sessionsList.filter(s => s.id !== sessionId).map(session => (
+                      <div
+                        key={session.id}
+                        onClick={() => switchSession(session.id)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '8px 16px', cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-3)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 12, color: 'var(--text-primary)',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            maxWidth: 240,
+                          }}>
+                            {session.preview}
+                          </div>
+                          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 8 }}>
+                            <span>{session.messageCount} messages</span>
+                            <span>{new Date(session.lastActiveAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); deleteSession(session.id) }}
+                          style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            color: 'var(--text-muted)', padding: '2px 4px', flexShrink: 0,
+                            transition: 'color 0.15s',
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.color = '#e24b4a')}
+                          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* New session button */}
+                <div style={{ padding: '8px 16px 12px', borderTop: '1px solid var(--border)' }}>
                   <button
                     onClick={async () => {
                       const res = await fetch('/api/sessions', { method: 'POST' })
@@ -1259,104 +1409,29 @@ export default function Home() {
                       sessionIdRef.current = data.id
                       setMessages([])
                       setSelectedPaperIds([])
-                      setPapers([])
                       setSocraticMode(false)
+                      setNotes([])
+                      setCurrentSessionName(null)
                       setShowSessions(false)
                     }}
                     style={{
-                      padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
-                      background: 'var(--accent)', border: 'none',
-                      color: '#fff', fontSize: 11,
-                      fontFamily: 'DM Mono, monospace',
+                      width: '100%', padding: '8px', borderRadius: 8, cursor: 'pointer',
+                      background: 'var(--bg-3)', border: '1px dashed var(--border-2)',
+                      color: 'var(--text-muted)', fontSize: 11,
+                      fontFamily: 'DM Mono, monospace', transition: 'all 0.2s',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.borderColor = 'var(--accent)'
+                      e.currentTarget.style.color = 'var(--accent-2)'
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderColor = 'var(--border-2)'
+                      e.currentTarget.style.color = 'var(--text-muted)'
                     }}
                   >
-                    + New
+                    + New Session
                   </button>
-                </div>
-
-                {/* Session list */}
-                <div style={{ maxHeight: 320, overflowY: 'auto', padding: '8px' }}>
-                  {loadingSessions ? (
-                    <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)', fontSize: 12 }}>
-                      <Loader size={14} color="var(--accent)" style={{ animation: 'spin-slow 1s linear infinite' }} />
-                    </div>
-                  ) : sessionsList.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)', fontSize: 11 }}>
-                      No sessions yet
-                    </div>
-                  ) : (
-                    sessionsList.map(session => {
-                      const isActive = session.id === sessionId
-                      return (
-                        <div
-                          key={session.id}
-                          onClick={() => switchSession(session.id)}
-                          style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            padding: '10px 12px', borderRadius: 8, marginBottom: 4,
-                            cursor: 'pointer', transition: 'all 0.15s',
-                            background: isActive ? 'var(--accent-glow)' : 'transparent',
-                            border: `1px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
-                          }}
-                          onMouseEnter={e => {
-                            if (!isActive) e.currentTarget.style.background = 'var(--bg-3)'
-                          }}
-                          onMouseLeave={e => {
-                            if (!isActive) e.currentTarget.style.background = 'transparent'
-                          }}
-                        >
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            {isActive && (
-                              <div style={{ fontSize: 9, color: 'var(--accent-2)', marginBottom: 3, letterSpacing: '0.08em' }}>
-                                ● ACTIVE
-                              </div>
-                            )}
-                            <div style={{
-                              fontSize: 12,
-                              color: isActive ? 'var(--accent-2)' : 'var(--text-primary)',
-                              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                              maxWidth: 220,
-                            }}>
-                              {session.preview}
-                            </div>
-                            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3, display: 'flex', gap: 8 }}>
-                              <span>{session.messageCount} messages</span>
-                              <span>{session.paperCount} papers</span>
-                              <span>{new Date(session.lastActiveAt).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-                          <button
-                            onClick={e => { e.stopPropagation(); deleteSession(session.id) }}
-                            style={{
-                              background: 'none', border: 'none', cursor: 'pointer',
-                              color: 'var(--text-muted)', padding: '2px 4px', flexShrink: 0,
-                              transition: 'color 0.15s',
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.color = '#e24b4a')}
-                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      )
-                    })
-                  )}
-                  {sessionHasMore && (
-                    <div style={{ padding: '8px', textAlign: 'center' }}>
-                      <button
-                        onClick={() => loadSessionList(sessionPage + 1)}
-                        disabled={loadingMoreSessions}
-                        style={{
-                          width: '100%', padding: '8px', borderRadius: 6,
-                          background: 'var(--bg-3)', border: '1px solid var(--border)',
-                          color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer',
-                          fontFamily: 'DM Mono, monospace',
-                        }}
-                      >
-                        {loadingMoreSessions ? 'Loading...' : 'Load more sessions'}
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
