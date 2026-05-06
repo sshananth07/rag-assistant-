@@ -81,6 +81,19 @@ sessionsRoute.post('/:id/messages', zValidator('json', z.object({
     return c.json({ id: msg.id, status: 'saved' })
 })
 
+sessionsRoute.patch('/:id/name', zValidator('json', z.object({
+    name: z.string().min(1).max(100),
+})), async (c) => {
+    const id = c.req.param('id')
+    const { name } = c.req.valid('json')
+
+    await db.update(sessions)
+        .set({ name, lastActiveAt: Date.now() })
+        .where(eq(sessions.id, id))
+
+    return c.json({ status: 'updated' })
+})
+
 // Update session state
 sessionsRoute.patch('/:id/state', zValidator('json', z.object({
     selectedPaperIds: z.array(z.string()).optional(),
@@ -163,7 +176,8 @@ sessionsRoute.get('/', async (c) => {
             ...session,
             messageCount: msgs.length,
             paperCount: papers.length,
-            preview: firstUserMsg?.content?.slice(0, 60) ?? 'Empty session',
+            preview: session.name ?? firstUserMsg?.content?.slice(0, 60) ?? 'Empty session',
+            name: session.name,
         }
     }))
 
