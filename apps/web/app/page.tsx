@@ -148,10 +148,17 @@ export default function Home() {
 
         if (stored) {
           const res = await fetch(`/api/sessions/${stored}`)
-          if (res.ok) {
-            const data = await res.json()
+          if (!res.ok) {
+            // Session not found — clear and start fresh
+            localStorage.removeItem('papermind_session_id')
+            localStorage.removeItem('paperbuddy_session_id')
+            await createNewSession()
+            return
+          }
+          
+          const data = await res.json()
 
-            if (data.messages?.length > 0) {
+          if (data.messages?.length > 0) {
               setMessages(data.messages.map((m: any) => ({
                 id: m.id,
                 role: m.role,
@@ -176,7 +183,6 @@ export default function Home() {
             sessionIdRef.current = stored
             setCurrentSessionName(data.name ?? null)
             return
-          }
         }
 
         // No valid stored session — find the most recent non-empty session
